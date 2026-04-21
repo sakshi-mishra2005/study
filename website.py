@@ -86,8 +86,12 @@ PDF_TEXT = load_pdf()
 
 # ------------------ AI TUTOR ------------------
 def chat_with_ai(user_input, chat_history):
+    import requests
+    text = user_input.lower()
+
+    # -------- Try API first --------
     try:
-        query = "Explain like a teacher with simple examples: " + user_input
+        query = "Explain in simple terms with examples: " + user_input
         url = "https://api.duckduckgo.com/?q=" + query + "&format=json"
 
         response = requests.get(url)
@@ -97,17 +101,80 @@ def chat_with_ai(user_input, chat_history):
             return data["AbstractText"]
 
         elif data.get("RelatedTopics"):
-            return data["RelatedTopics"][0].get("Text", "No clear answer found.")
-
-        elif PDF_TEXT:
-            return "From your uploaded notes:\n\n" + PDF_TEXT[:500]
-
-        else:
-            return "Try asking a more specific question."
+            for topic in data["RelatedTopics"]:
+                if isinstance(topic, dict) and topic.get("Text"):
+                    return topic["Text"]
 
     except:
-        return "Error fetching AI response"
+        pass
 
+    # -------- SMART TEACHING FALLBACK --------
+
+    if "cmos" in text:
+        return """📘 CMOS (Complementary Metal-Oxide Semiconductor)
+
+👉 CMOS is used to build digital circuits like NOT gate (inverter).
+
+👉 It uses:
+- PMOS transistor
+- NMOS transistor
+
+👉 Working:
+- Input = 0 → PMOS ON, NMOS OFF → Output = 1
+- Input = 1 → PMOS OFF, NMOS ON → Output = 0
+
+👉 Why CMOS is important:
+- Very low power consumption
+- High efficiency
+- Used in processors, ICs, memory chips
+
+👉 Example:
+CMOS inverter gives output opposite of input."""
+
+    elif "pn junction" in text:
+        return """📘 PN Junction
+
+👉 Formed by joining P-type and N-type semiconductor.
+
+👉 Depletion region forms at junction (no free charges).
+
+👉 Forward bias → current flows  
+👉 Reverse bias → blocks current  
+
+👉 Used in diodes and rectifiers."""
+
+    elif "fermi level" in text:
+        return """📘 Fermi Level
+
+👉 Energy level where probability of electron is 50%.
+
+👉 In N-type → shifts upward  
+👉 In P-type → shifts downward  
+
+👉 Important for understanding conductivity."""
+
+    elif "resistivity" in text:
+        return """📘 Resistivity in Semiconductor
+
+👉 Opposite of conductivity.
+
+👉 With increase in temperature:
+- Charge carriers increase
+- Resistivity decreases
+
+👉 This is opposite of metals."""
+
+    elif "depletion" in text:
+        return """📘 Depletion Region
+
+👉 Region near PN junction with no free charge carriers.
+
+👉 Contains only immobile ions.
+
+👉 Acts like a barrier for current."""
+
+    else:
+        return "Try asking like: 'Explain CMOS working', 'PN junction in detail', 'Fermi level in p-type'."
 # ------------------ CHAT UI ------------------
 st.subheader("💬 AI Study Tutor")
 
