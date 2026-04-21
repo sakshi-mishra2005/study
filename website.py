@@ -1,13 +1,13 @@
 import streamlit as st
 import math
-import subprocess
+import requests
 from PyPDF2 import PdfReader
 
-# Page setup
+# ------------------ PAGE SETUP ------------------
 st.set_page_config(page_title="Smart Study Planner AI", layout="centered")
 st.title("📚 Smart Study Planner + AI Tutor")
 
-# Sidebar input
+# ------------------ SIDEBAR ------------------
 st.sidebar.header("📌 Your Study Info")
 
 course = st.sidebar.text_input("Course")
@@ -15,7 +15,7 @@ subjects = st.sidebar.text_input("Subjects (comma separated)")
 days = st.sidebar.number_input("Days available", min_value=1)
 hours = st.sidebar.number_input("Hours per day", min_value=1)
 
-# Generate Study Plan
+# ------------------ STUDY PLAN FUNCTION ------------------
 def generate_plan(subjects, days, hours):
     plan = {}
     subject_list = [s.strip() for s in subjects.split(",") if s.strip()]
@@ -47,7 +47,7 @@ def generate_plan(subjects, days, hours):
 
     return plan
 
-# Button to create plan
+# ------------------ CREATE PLAN ------------------
 if st.sidebar.button("🚀 Create Smart Plan"):
     plan = generate_plan(subjects, days, hours)
 
@@ -61,71 +61,54 @@ if st.sidebar.button("🚀 Create Smart Plan"):
     else:
         st.warning("⚠️ Please enter valid subjects")
 
-# Load PDF data
+# ------------------ OPTIONAL PDF LOAD ------------------
 def load_pdf():
     try:
-        path = r"C:\Users\admin\Desktop\op.pdf"
-        reader = PdfReader(path)
+        uploaded_file = st.file_uploader("📄 Upload PDF (optional)", type="pdf")
 
-        text = ""
-        for page in reader.pages:
-            extracted = page.extract_text()
-            if extracted:
-                text += extracted + "\n"
+        if uploaded_file:
+            reader = PdfReader(uploaded_file)
+            text = ""
 
-        return text[:5000]  # limit size
+            for page in reader.pages:
+                extracted = page.extract_text()
+                if extracted:
+                    text += extracted + "\n"
 
-    except Exception as e:
-        return f"Error loading PDF: {str(e)}"
+            return text[:2000]
 
-# Load once
+        return ""
+
+    except:
+        return ""
+
 PDF_TEXT = load_pdf()
 
-# System prompt
-SYSTEM_PROMPT = """
-You are an expert VLSI tutor trained using Optical Reference material.
-
-Rules:
-1. Answer primarily from provided PDF notes
-2. Ask prerequisite questions
-3. Explain concept simply
-4. Give examples
-5. Give practice questions
-6. Evaluate answers step-by-step
-
-Avoid generic answers.
-"""
-
-# AI chat function
+# ------------------ AI TUTOR ------------------
 def chat_with_ai(user_input, chat_history):
-    conversation = SYSTEM_PROMPT + "\n\nReference Notes:\n" + PDF_TEXT + "\n\n"
-
-    for msg in chat_history:
-        role = "Student" if msg["role"] == "user" else "Tutor"
-        conversation += f"{role}: {msg['content']}\n"
-
-    conversation += f"Student: {user_input}\nTutor:"
-
     try:
-        result = subprocess.run(
-            ["ollama", "run", "mistral"],
-            input=conversation,
-            capture_output=True,
-            text=True,
-            encoding="utf-8"
-        )
+        query = "Explain like a teacher with simple examples: " + user_input
+        url = "https://api.duckduckgo.com/?q=" + query + "&format=json"
 
-        reply = result.stdout.strip()
+        response = requests.get(url)
+        data = response.json()
 
-        if not reply:
-            return "⚠️ No response. Make sure Ollama is running."
+        if data.get("AbstractText"):
+            return data["AbstractText"]
 
-        return reply
+        elif data.get("RelatedTopics"):
+            return data["RelatedTopics"][0].get("Text", "No clear answer found.")
 
-    except Exception as e:
-        return f"Error: {str(e)}"
+        elif PDF_TEXT:
+            return "From your uploaded notes:\n\n" + PDF_TEXT[:500]
 
-# Chat UI
+        else:
+            return "Try asking a more specific question."
+
+    except:
+        return "Error fetching AI response"
+
+# ------------------ CHAT UI ------------------
 st.subheader("💬 AI Study Tutor")
 
 if "chat_history" not in st.session_state:
